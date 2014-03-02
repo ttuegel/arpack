@@ -1,0 +1,9 @@
+.*.swp
+.cabal-sandbox/
+dist/
+cabal.sandbox.config
+flycheck_*
+*.hi
+*.o
+*.prof
+/result*
