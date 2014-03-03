@@ -19,6 +19,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Loop
 import Data.Complex
 import Data.Function (on)
+import Data.Maybe (fromMaybe)
 import qualified Data.Vector.Algorithms.Heap as Heap
 import qualified Data.Vector.Generic as Vec
 import qualified Data.Vector.Generic.Mutable as Mut
@@ -135,7 +136,7 @@ arpackWrapper aupd eupd !findVectors !opts !mat !dim = withPool $ \pool ->
        do -- Shift strategy (1 -> exact)
           pokeOff iparam 0 1
           -- Maximum number of iterations
-          pokeOff iparam 2 (fromIntegral $ 3 * dim)
+          pokeOff iparam 2 $ fromIntegral $ fromMaybe (3 * dim) $ maxIterations opts
           -- Mode of znaupd
           -- 1 -> exact shift, 2 -> user-supplied shift, 3 -> shift-invert
           -- 4 -> buckling, 5 -> Cayley

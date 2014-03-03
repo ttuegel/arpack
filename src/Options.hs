@@ -14,6 +14,7 @@ data Component a where
 
 data Options a = Options { which :: (Comparison, Component a)
                          , number :: Int
+                         , maxIterations :: Maybe Int
                          }
 
 whichString :: Options t -> String
