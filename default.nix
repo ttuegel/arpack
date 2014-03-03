@@ -10,7 +10,11 @@ haskellPackages.cabal.mkDerivation (self: {
     concurrentExtra
     controlMonadLoop
     dataDefault
+    hmatrix
+    ieee754
     storableComplex
+    tasty
+    tastyQuickcheck
     transformers
     vector
     vectorAlgorithms
