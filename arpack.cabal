@@ -19,7 +19,8 @@ library
   exposed-modules:
     Numeric.Arpack
   other-modules:
-    Internal
+    Internal,
+    Options
   -- other-extensions:
   build-depends:
     base ==4.6.*,

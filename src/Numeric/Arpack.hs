@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
 module Numeric.Arpack
-       ( Options(..), Comparison, Component
+       ( Options(..), Comparison(..), Component(..)
        , eigensystem, eigenvalues
        ) where
 
@@ -14,7 +14,6 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Loop
 import Data.Complex
 import Data.Function (on)
-import Data.Ord
 import qualified Data.Vector.Algorithms.Heap as Heap
 import qualified Data.Vector.Generic as Vec
 import qualified Data.Vector.Generic.Mutable as Mut
@@ -28,19 +27,12 @@ import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf
 
 import Internal
+import Options
 
 -- Interface ----------
 
-data Comparison = Largest | Smallest deriving (Eq, Read, Show)
-data Component = Magnitude | Real | Imaginary deriving (Eq, Read, Show)
-
-data Options = Options { which :: (Comparison, Component)
-                       , number :: Int
-                       }
-  deriving (Eq, Read, Show)
-
 {-# NOINLINE eigenvalues #-}
-eigenvalues :: Arpack t => Options -> Unboxed.Vector (Int, Int, t) -> Int -> Unboxed.Vector t
+eigenvalues :: Arpack t => Options t -> Unboxed.Vector (Int, Int, t) -> Int -> Unboxed.Vector t
 eigenvalues opts mat dim = unsafePerformIO $ do
   (unsortEvals, _) <- arpack False opts mat dim
   sorting <- Vec.unsafeThaw unsortEvals
@@ -48,7 +40,7 @@ eigenvalues opts mat dim = unsafePerformIO $ do
   Vec.unsafeFreeze sorting
 
 {-# NOINLINE eigensystem #-}
-eigensystem :: Arpack t => Options -> Unboxed.Vector (Int, Int, t) -> Int
+eigensystem :: Arpack t => Options t -> Unboxed.Vector (Int, Int, t) -> Int
             -> (Unboxed.Vector t, Unboxed.Vector t)
 eigensystem opts mat dim = unsafePerformIO $ do
   (unsortEvals, unsortEvecs) <- arpack True opts mat dim
@@ -64,9 +56,9 @@ eigensystem opts mat dim = unsafePerformIO $ do
 -- Arpack driver ----------
 
 class Unboxed.Unbox t => Arpack t where
-  arpack :: Bool -> Options -> Unboxed.Vector (Int, Int, t) -> Int
+  arpack :: Bool -> Options t -> Unboxed.Vector (Int, Int, t) -> Int
          -> IO (Unboxed.Vector t, Unboxed.Vector t)
-  compare_ :: (Comparison, Component) -> t -> t -> Ordering
+  compare_ :: (Comparison, Component t) -> t -> t -> Ordering
 
 instance Arpack Float where
   arpack = arpackWrapper snaupd_ sneupd_
@@ -84,33 +76,10 @@ instance Arpack (Complex Double) where
   arpack = arpackWrapper znaupd_ zneupd_
   compare_ = compareComplex
 
-compareReal :: (Num t, Ord t) => (Comparison, Component) -> t -> t -> Ordering
-compareReal (how, _which) =
-  let f = case _which of
-            Magnitude -> abs
-            Real -> id
-            Imaginary -> const 0
-      c = case how of
-            Smallest -> compare
-            Largest -> comparing Down
-  in c `on` f
-
-compareComplex :: (Num t, Ord t, RealFloat t)
-               => (Comparison, Component) -> Complex t -> Complex t -> Ordering
-compareComplex (how, _which) =
-  let f = case _which of
-            Magnitude -> magnitude
-            Real -> realPart
-            Imaginary -> imagPart
-      c = case how of
-            Smallest -> compare
-            Largest -> comparing Down
-  in c `on` f
-
 arpackWrapper :: (Num t, Num real, Storable t, Storable real, Unboxed.Unbox t)
               => XXaupd t real -> XXeupd t real
               -> Bool
-              -> Options
+              -> Options t
               -> Unboxed.Vector (Int, Int, t)
               -> Int
               -> IO (Unboxed.Vector t, Unboxed.Vector t)
@@ -233,15 +202,3 @@ multiply dim mat workX workY = do
     x <- Mut.unsafeRead tmpX c
     Mut.unsafeRead tmpY r >>= Mut.unsafeWrite tmpY r . (+ (a * x))
   Storable.unsafeWith tmpY $ \p -> copyArray workY p dim
-
-whichString :: Options -> String
-whichString opts =
-  let (h, w) = which opts
-      c = case h of
-            Largest -> 'L'
-            Smallest -> 'S'
-      d = case w of
-            Magnitude -> 'M'
-            Real -> 'R'
-            Imaginary -> 'I'
-  in c : d : []
