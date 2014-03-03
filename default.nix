@@ -13,6 +13,7 @@ haskellPackages.cabal.mkDerivation (self: {
     storableComplex
     transformers
     vector
+    vectorAlgorithms
   ];
   buildTools = with haskellPackages; [ cabalInstall_1_18_0_2 ];
   pkgconfigDepends = [ pkgs.arpack ];

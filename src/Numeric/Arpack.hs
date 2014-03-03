@@ -1,11 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
-module Numeric.Arpack where
+module Numeric.Arpack (eigenvalues, eigensystem) where
 
 import Control.Concurrent.Lock (Lock)
 import qualified Control.Concurrent.Lock as Lock
@@ -13,77 +10,71 @@ import Control.Monad (liftM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Loop
 import Data.Complex
+import Data.Ord (comparing)
+import qualified Data.Vector.Algorithms.Heap as Heap
 import qualified Data.Vector.Generic as Vec
 import qualified Data.Vector.Generic.Mutable as Mut
-import qualified Data.Vector.Storable as Storable (Vector)
+import qualified Data.Vector.Storable as Storable hiding (unsafeWith)
 import qualified Data.Vector.Storable.Mutable as Storable
 import qualified Data.Vector.Unboxed as Unboxed
 import Foreign hiding (new, unsafePerformIO, void)
 import Foreign.C.String
-import Foreign.C.Types
 import Foreign.Storable.Complex ()
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf
 
--- Foreign imports ----------
+import Internal
 
-foreign import ccall unsafe "znaupd_" znaupd_
-  :: Ptr CInt             -- ido
-  -> CString              -- bmat
-  -> Ptr CInt             -- n
-  -> CString              -- which
-  -> Ptr CInt             -- nev
-  -> Ptr Double           -- tol
-  -> Ptr (Complex Double) -- resid
-  -> Ptr CInt             -- ncv
-  -> Ptr (Complex Double) -- v
-  -> Ptr CInt             -- ldv
-  -> Ptr CInt             -- iparam
-  -> Ptr CInt             -- ipntr
-  -> Ptr (Complex Double) -- workd
-  -> Ptr (Complex Double) -- workl
-  -> Ptr CInt             -- lworkl
-  -> Ptr Double           -- rwork
-  -> Ptr CInt             -- info
-  -> IO ()
+-- Interface ----------
 
-foreign import ccall unsafe "zneupd_" zneupd_
-  :: Ptr CInt             -- rvec
-  -> CString              -- all
-  -> Ptr CInt             -- select
-  -> Ptr (Complex Double) -- d
-  -> Ptr (Complex Double) -- z
-  -> Ptr CInt             -- ldz
-  -> Ptr Double           -- sigma
-  -> Ptr (Complex Double) -- workev
-  -> CString              -- bmat
-  -> Ptr CInt             -- n
-  -> CString              -- which
-  -> Ptr CInt             -- nev
-  -> Ptr Double           -- tol
-  -> Ptr (Complex Double) -- resid
-  -> Ptr CInt             -- ncv
-  -> Ptr (Complex Double) -- v
-  -> Ptr CInt             -- ldv
-  -> Ptr CInt             -- iparam
-  -> Ptr CInt             -- ipntr
-  -> Ptr (Complex Double) -- workd
-  -> Ptr (Complex Double) -- workl
-  -> Ptr CInt             -- lworkl
-  -> Ptr Double           -- rwork
-  -> Ptr CInt             -- ierr
-  -> IO ()
+class Unboxed.Unbox t => Arpack t where
+  arpack :: Bool -> Unboxed.Vector (Int, Int, t) -> Int -> Int
+         -> IO (Unboxed.Vector t, Unboxed.Vector t)
+
+instance Arpack Float where
+  arpack = arpackWrapper snaupd_ sneupd_
+
+instance Arpack Double where
+  arpack = arpackWrapper dnaupd_ dneupd_
+
+instance Arpack (Complex Float) where
+  arpack = arpackWrapper cnaupd_ cneupd_
+
+instance Arpack (Complex Double) where
+  arpack = arpackWrapper znaupd_ zneupd_
+
+{-# NOINLINE eigenvalues #-}
+eigenvalues :: Arpack t => Unboxed.Vector (Int, Int, t) -> Int -> Int -> Unboxed.Vector t
+eigenvalues mat dim nEv = unsafePerformIO $ do
+  (unsortEvals, _) <- arpack False mat dim nEv
+  sorting <- Vec.unsafeThaw unsortEvals
+  --Heap.sortBy (comparing realPart) sorting
+  Vec.unsafeFreeze sorting
+
+{-# NOINLINE eigensystem #-}
+eigensystem :: Arpack t => Unboxed.Vector (Int, Int, t) -> Int -> Int
+            -> (Unboxed.Vector t, Unboxed.Vector t)
+eigensystem mat dim nEv = unsafePerformIO $ do
+  (unsortEvals, unsortEvecs) <- arpack True mat dim nEv
+  sorting <- Vec.unsafeThaw $ Vec.indexed unsortEvals
+  --Heap.sortBy (comparing (realPart . snd)) sorting
+  (ordering, evals) <- liftM Vec.unzip $ Vec.unsafeFreeze sorting
+  let permutation = Vec.concatMap (\i -> let off = i * dim
+                                         in Vec.map (+ off) (Vec.enumFromN 0 dim))
+                                  ordering
+      evecs = Vec.unsafeBackpermute (Vec.convert unsortEvecs) permutation
+  return (evals, evecs)
 
 -- Arpack driver ----------
 
-arpack :: Bool -- ^ return eigenvectors?
-       -> Unboxed.Vector (Int, Int, Complex Double) -- ^ sparse matrix
-       -> Int -- ^ matrix dimension
-       -> Int -- ^ desired number of eigenvalues to return
-       -> IO ( Storable.Vector (Complex Double) -- ^ eigenvalues
-             , Storable.Vector (Complex Double) -- ^ eigenvectors
-             )
-arpack !findVectors !mat !dim !nev = withPool $ \pool ->
+arpackWrapper :: (Num t, Num real, Storable t, Storable real, Unboxed.Unbox t)
+              => XXaupd t real -> XXeupd t real
+              -> Bool
+              -> Unboxed.Vector (Int, Int, t)
+              -> Int
+              -> Int
+              -> IO (Unboxed.Vector t, Unboxed.Vector t)
+arpackWrapper aupd eupd !findVectors !mat !dim !nev = withPool $ \pool ->
        -- These variables are all banged because we need to be strict
        -- in them _before_ we enter the locked segment of code! If we
        -- wait until we're inside the lock, and evaluating one of these
@@ -110,7 +101,7 @@ arpack !findVectors !mat !dim !nev = withPool $ \pool ->
      ido <- new 0
      n <- new $ fromIntegral dim
      _nev <- new $ fromIntegral nev
-     tol <- new 0.0
+     tol <- new 0
      _ncv <- new $ fromIntegral ncv
      v <- array (dim * ncv)
      ldv <- new $ fromIntegral dim
@@ -119,7 +110,7 @@ arpack !findVectors !mat !dim !nev = withPool $ \pool ->
 
      rvec <- new $ if findVectors then 1 else 0
      ldz <- new $ fromIntegral dim
-     sigma <- new 0.0
+     sigma <- new 0
      eupdInfo <- new 0
 
      withCString "I" $ \bmat ->
@@ -139,8 +130,8 @@ arpack !findVectors !mat !dim !nev = withPool $ \pool ->
           -- it's better to lock as little code as possible!
           (evalsM, evecsM) <- Lock.with arpackLock $ do
             repeatLoopT $ do
-              lift $ znaupd_ ido bmat n which _nev tol resid _ncv v
-                             ldv iparam ipntr workd workl _lworkl rwork aupdInfo
+              lift $ aupd ido bmat n which _nev tol resid _ncv v
+                          ldv iparam ipntr workd workl _lworkl rwork aupdInfo
               i <- lift $ peek ido
               case i of
                 99 -> exit
@@ -161,9 +152,9 @@ arpack !findVectors !mat !dim !nev = withPool $ \pool ->
             evecsM <- Mut.new (dim * nev)
             Storable.unsafeWith evalsM $ \d ->
               Storable.unsafeWith evecsM $ \z ->
-              zneupd_ rvec howmny select d z ldz sigma workev bmat n
-                      which _nev tol resid _ncv v ldv iparam ipntr workd
-                      workl _lworkl rwork eupdInfo
+              eupd rvec howmny select d z ldz sigma workev bmat n
+                   which _nev tol resid _ncv v ldv iparam ipntr workd
+                   workl _lworkl rwork eupdInfo
 
             do info <- peek eupdInfo
                case info of
@@ -172,9 +163,9 @@ arpack !findVectors !mat !dim !nev = withPool $ \pool ->
 
             return (evalsM, evecsM)
 
-          evals <- Vec.freeze evalsM
-          evecs <- Vec.freeze evecsM
-          return (Vec.take nev evals, Vec.take (dim * nev) evecs)
+          evals <- Storable.freeze evalsM
+          evecs <- Storable.freeze evecsM
+          return (Vec.convert $ Vec.take nev evals, Vec.convert $ Vec.take (dim * nev) evecs)
 
 -- Utilities ----------
 
@@ -188,15 +179,16 @@ pokeOff p off = poke (advancePtr p off)
 peekOff :: Storable a => Ptr a -> Int -> IO a
 peekOff p off = peek (advancePtr p off)
 
-multiply :: Int
-         -> Unboxed.Vector (Int, Int, Complex Double)
-         -> Ptr (Complex Double)
-         -> Ptr (Complex Double)
+multiply :: (Num t, Storable t, Unboxed.Unbox t)
+         => Int
+         -> Unboxed.Vector (Int, Int, t)
+         -> Ptr t
+         -> Ptr t
          -> IO ()
 multiply dim mat workX workY = do
   tmpX <- Mut.new dim
   Storable.unsafeWith tmpX $ \p -> copyArray p workX dim
-  tmpY <- Mut.replicate dim (0.0 :+ 0.0)
+  tmpY <- Mut.replicate dim 0
   Vec.forM_ mat $ \(r, c, a) -> do
     x <- Mut.unsafeRead tmpX c
     Mut.unsafeRead tmpY r >>= Mut.unsafeWrite tmpY r . (+ (a * x))
