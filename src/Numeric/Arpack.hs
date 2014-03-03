@@ -2,7 +2,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
-module Numeric.Arpack (eigenvalues, eigensystem) where
+module Numeric.Arpack
+       ( Options(..), Comparison, Component
+       , eigensystem, eigenvalues
+       ) where
 
 import Control.Concurrent.Lock (Lock)
 import qualified Control.Concurrent.Lock as Lock
@@ -10,7 +13,8 @@ import Control.Monad (liftM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Loop
 import Data.Complex
-import Data.Ord (comparing)
+import Data.Function (on)
+import Data.Ord
 import qualified Data.Vector.Algorithms.Heap as Heap
 import qualified Data.Vector.Generic as Vec
 import qualified Data.Vector.Generic.Mutable as Mut
@@ -27,37 +31,29 @@ import Internal
 
 -- Interface ----------
 
-class Unboxed.Unbox t => Arpack t where
-  arpack :: Bool -> Unboxed.Vector (Int, Int, t) -> Int -> Int
-         -> IO (Unboxed.Vector t, Unboxed.Vector t)
+data Comparison = Largest | Smallest deriving (Eq, Read, Show)
+data Component = Magnitude | Real | Imaginary deriving (Eq, Read, Show)
 
-instance Arpack Float where
-  arpack = arpackWrapper snaupd_ sneupd_
-
-instance Arpack Double where
-  arpack = arpackWrapper dnaupd_ dneupd_
-
-instance Arpack (Complex Float) where
-  arpack = arpackWrapper cnaupd_ cneupd_
-
-instance Arpack (Complex Double) where
-  arpack = arpackWrapper znaupd_ zneupd_
+data Options = Options { which :: (Comparison, Component)
+                       , number :: Int
+                       }
+  deriving (Eq, Read, Show)
 
 {-# NOINLINE eigenvalues #-}
-eigenvalues :: Arpack t => Unboxed.Vector (Int, Int, t) -> Int -> Int -> Unboxed.Vector t
-eigenvalues mat dim nEv = unsafePerformIO $ do
-  (unsortEvals, _) <- arpack False mat dim nEv
+eigenvalues :: Arpack t => Options -> Unboxed.Vector (Int, Int, t) -> Int -> Unboxed.Vector t
+eigenvalues opts mat dim = unsafePerformIO $ do
+  (unsortEvals, _) <- arpack False opts mat dim
   sorting <- Vec.unsafeThaw unsortEvals
-  --Heap.sortBy (comparing realPart) sorting
+  Heap.sortBy (compare_ $ which opts) sorting
   Vec.unsafeFreeze sorting
 
 {-# NOINLINE eigensystem #-}
-eigensystem :: Arpack t => Unboxed.Vector (Int, Int, t) -> Int -> Int
+eigensystem :: Arpack t => Options -> Unboxed.Vector (Int, Int, t) -> Int
             -> (Unboxed.Vector t, Unboxed.Vector t)
-eigensystem mat dim nEv = unsafePerformIO $ do
-  (unsortEvals, unsortEvecs) <- arpack True mat dim nEv
+eigensystem opts mat dim = unsafePerformIO $ do
+  (unsortEvals, unsortEvecs) <- arpack True opts mat dim
   sorting <- Vec.unsafeThaw $ Vec.indexed unsortEvals
-  --Heap.sortBy (comparing (realPart . snd)) sorting
+  Heap.sortBy (compare_ (which opts) `on` snd) sorting
   (ordering, evals) <- liftM Vec.unzip $ Vec.unsafeFreeze sorting
   let permutation = Vec.concatMap (\i -> let off = i * dim
                                          in Vec.map (+ off) (Vec.enumFromN 0 dim))
@@ -67,19 +63,63 @@ eigensystem mat dim nEv = unsafePerformIO $ do
 
 -- Arpack driver ----------
 
+class Unboxed.Unbox t => Arpack t where
+  arpack :: Bool -> Options -> Unboxed.Vector (Int, Int, t) -> Int
+         -> IO (Unboxed.Vector t, Unboxed.Vector t)
+  compare_ :: (Comparison, Component) -> t -> t -> Ordering
+
+instance Arpack Float where
+  arpack = arpackWrapper snaupd_ sneupd_
+  compare_ = compareReal
+
+instance Arpack Double where
+  arpack = arpackWrapper dnaupd_ dneupd_
+  compare_ = compareReal
+
+instance Arpack (Complex Float) where
+  arpack = arpackWrapper cnaupd_ cneupd_
+  compare_ = compareComplex
+
+instance Arpack (Complex Double) where
+  arpack = arpackWrapper znaupd_ zneupd_
+  compare_ = compareComplex
+
+compareReal :: (Num t, Ord t) => (Comparison, Component) -> t -> t -> Ordering
+compareReal (how, _which) =
+  let f = case _which of
+            Magnitude -> abs
+            Real -> id
+            Imaginary -> const 0
+      c = case how of
+            Smallest -> compare
+            Largest -> comparing Down
+  in c `on` f
+
+compareComplex :: (Num t, Ord t, RealFloat t)
+               => (Comparison, Component) -> Complex t -> Complex t -> Ordering
+compareComplex (how, _which) =
+  let f = case _which of
+            Magnitude -> magnitude
+            Real -> realPart
+            Imaginary -> imagPart
+      c = case how of
+            Smallest -> compare
+            Largest -> comparing Down
+  in c `on` f
+
 arpackWrapper :: (Num t, Num real, Storable t, Storable real, Unboxed.Unbox t)
               => XXaupd t real -> XXeupd t real
               -> Bool
+              -> Options
               -> Unboxed.Vector (Int, Int, t)
               -> Int
-              -> Int
               -> IO (Unboxed.Vector t, Unboxed.Vector t)
-arpackWrapper aupd eupd !findVectors !mat !dim !nev = withPool $ \pool ->
+arpackWrapper aupd eupd !findVectors !opts !mat !dim = withPool $ \pool ->
        -- These variables are all banged because we need to be strict
        -- in them _before_ we enter the locked segment of code! If we
        -- wait until we're inside the lock, and evaluating one of these
        -- variables invokes 'arpack' again, the program will deadlock!
-  do let
+  do let nev = number opts
          -- Largest number of basis vectors to use.
          -- Work per iteration is O(dim * ncv ^ 2).
          ncv = min dim (4 * nev)
@@ -114,7 +154,7 @@ arpackWrapper aupd eupd !findVectors !mat !dim !nev = withPool $ \pool ->
      eupdInfo <- new 0
 
      withCString "I" $ \bmat ->
-       withCString "SR" $ \which ->
+       withCString (whichString opts) $ \_which ->
        withCString "A" $ \howmny ->
 
        do -- Shift strategy (1 -> exact)
@@ -130,7 +170,7 @@ arpackWrapper aupd eupd !findVectors !mat !dim !nev = withPool $ \pool ->
           -- it's better to lock as little code as possible!
           (evalsM, evecsM) <- Lock.with arpackLock $ do
             repeatLoopT $ do
-              lift $ aupd ido bmat n which _nev tol resid _ncv v
+              lift $ aupd ido bmat n _which _nev tol resid _ncv v
                           ldv iparam ipntr workd workl _lworkl rwork aupdInfo
               i <- lift $ peek ido
               case i of
@@ -153,7 +193,7 @@ arpackWrapper aupd eupd !findVectors !mat !dim !nev = withPool $ \pool ->
             Storable.unsafeWith evalsM $ \d ->
               Storable.unsafeWith evecsM $ \z ->
               eupd rvec howmny select d z ldz sigma workev bmat n
-                   which _nev tol resid _ncv v ldv iparam ipntr workd
+                   _which _nev tol resid _ncv v ldv iparam ipntr workd
                    workl _lworkl rwork eupdInfo
 
             do info <- peek eupdInfo
@@ -193,3 +233,15 @@ multiply dim mat workX workY = do
     x <- Mut.unsafeRead tmpX c
     Mut.unsafeRead tmpY r >>= Mut.unsafeWrite tmpY r . (+ (a * x))
   Storable.unsafeWith tmpY $ \p -> copyArray workY p dim
+
+whichString :: Options -> String
+whichString opts =
+  let (h, w) = which opts
+      c = case h of
+            Largest -> 'L'
+            Smallest -> 'S'
+      d = case w of
+            Magnitude -> 'M'
+            Real -> 'R'
+            Imaginary -> 'I'
+  in c : d : []
