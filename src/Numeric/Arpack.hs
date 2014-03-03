@@ -3,12 +3,17 @@
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
 module Numeric.Arpack
-       ( Options(..), Comparison(..), Component(..)
-       , eigensystem, eigenvalues
+       ( Options(..)
+       , Comparison(..)
+       , Component(..)
+       , module Exceptions
+       , eigensystem
+       , eigenvalues
        ) where
 
 import Control.Concurrent.Lock (Lock)
 import qualified Control.Concurrent.Lock as Lock
+import Control.Exception (throw)
 import Control.Monad (liftM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Loop
@@ -26,6 +31,7 @@ import Foreign.Storable.Complex ()
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf
 
+import Exceptions
 import Internal
 import Options
 
@@ -155,6 +161,8 @@ arpackWrapper aupd eupd !findVectors !opts !mat !dim = withPool $ \pool ->
             do info <- peek aupdInfo
                case info of
                     0 -> return ()
+                    1 -> throw MaxIterations
+                    3 -> throw NoShifts
                     _ -> printf "znaupd: info = %d" (fromIntegral info :: Int)
 
             evalsM <- Mut.new (nev + 1)

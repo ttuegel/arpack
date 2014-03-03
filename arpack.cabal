@@ -19,6 +19,7 @@ library
   exposed-modules:
     Numeric.Arpack
   other-modules:
+    Exceptions,
     Internal,
     Options
   -- other-extensions:
