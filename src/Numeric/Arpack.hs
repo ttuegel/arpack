@@ -3,7 +3,8 @@
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
 module Numeric.Arpack
-       ( Options(..)
+       ( Arpack()
+       , Options(..)
        , Comparison(..)
        , Component(..)
        , module Exceptions
