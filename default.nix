@@ -1,25 +1,19 @@
-{ pkgs ? (import ./nixpkgs {}) }:
-let
-  inherit (pkgs) haskellPackages;
-in
-haskellPackages.cabal.mkDerivation (self: {
+{ mkDerivation, arpack, base, concurrent-extra, containers
+, control-monad-loop, data-default, hmatrix, ieee754, stdenv
+, storable-complex, tasty, tasty-quickcheck, transformers, vector
+, vector-algorithms
+}:
+mkDerivation {
   pname = "arpack";
   version = "0.1.0.0";
   src = ./.;
-  buildDepends = with haskellPackages; [
-    concurrentExtra
-    controlMonadLoop
-    dataDefault
-    hmatrix
-    ieee754
-    storableComplex
-    tasty
-    tastyQuickcheck
-    transformers
-    vector
-    vectorAlgorithms
+  libraryHaskellDepends = [
+    base concurrent-extra containers control-monad-loop data-default
+    storable-complex transformers vector vector-algorithms
   ];
-  buildTools = with haskellPackages; [ cabalInstall_1_18_0_2 ];
-  pkgconfigDepends = [ pkgs.arpack ];
-  enableSplitObjs = false;
-})
+  libraryPkgconfigDepends = [ arpack ];
+  testHaskellDepends = [
+    base hmatrix ieee754 tasty tasty-quickcheck vector
+  ];
+  license = stdenv.lib.licenses.bsd3;
+}
