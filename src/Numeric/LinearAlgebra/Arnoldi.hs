@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
-module Numeric.Arpack
+module Numeric.LinearAlgebra.Arnoldi
        ( Arpack()
        , Options(..)
        , Comparison(..)

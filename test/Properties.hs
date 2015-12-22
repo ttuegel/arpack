@@ -8,10 +8,11 @@ import Data.Complex
 import Data.List (sort, sortBy)
 import Data.Ord (comparing)
 import qualified Data.Vector.Unboxed as VU
-import Numeric.Arpack
 import qualified Numeric.LinearAlgebra as HMatrix
 import Test.Tasty.QuickCheck as QC
 import Test.Tasty
+
+import Numeric.LinearAlgebra.Arnoldi
 
 type Mat t = VU.Vector (Int, Int, t)
 
