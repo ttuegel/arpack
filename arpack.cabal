@@ -43,7 +43,7 @@ test-suite tests
   build-depends:
     arpack,
     base,
-    hmatrix,
+    hmatrix >= 0.16,
     ieee754,
     tasty >= 0.7,
     tasty-quickcheck >= 0.3,
