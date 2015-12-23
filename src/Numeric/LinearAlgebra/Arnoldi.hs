@@ -1,10 +1,15 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Numeric.LinearAlgebra.Arnoldi where
+module Numeric.LinearAlgebra.Arnoldi
+       ( Arpack(..)
+       , Options(..), Which(..)
+       ) where
 
 import qualified Control.Concurrent.Lock as Lock
 import Control.Exception (throwIO)
+import Data.Complex
 import Data.Maybe (fromMaybe)
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as VS hiding (unsafeWith)
@@ -15,11 +20,11 @@ import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra.Devel as Dense
 import Text.Printf
 
-import Internal
-import Exceptions
-import qualified Numeric.LinearAlgebra.Arnoldi.Lock as Arpack
-import Numeric.LinearAlgebra.Arnoldi.State
-import Options
+import Arpack.Exceptions
+import Arpack.Foreign
+import qualified Arpack.Lock as Arpack
+import Arpack.Options
+import Arpack.State
 
 class Arpack t where
   eig :: Options t -> Int -> (IOVector t -> IOVector t -> IO ())

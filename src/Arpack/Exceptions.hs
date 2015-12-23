@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Exceptions where
+module Arpack.Exceptions where
 
 import Control.Exception
 import Data.Typeable

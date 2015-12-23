@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Numeric.LinearAlgebra.Arnoldi.State where
+module Arpack.State where
 
 import Control.Exception (bracket)
 import Data.Vector.Storable.Mutable (IOVector)
@@ -9,7 +9,7 @@ import Foreign
 import Foreign.C.String
 import Foreign.C.Types
 
-import Options
+import Arpack.Options
 
 data AUPD t = AUPD
               { ido :: {-# UNPACK #-} !(Ptr CInt)
@@ -17,7 +17,7 @@ data AUPD t = AUPD
               , n :: {-# UNPACK #-} !(Ptr CInt)
               , which :: {-# UNPACK #-} !CString
               , nev :: {-# UNPACK #-} !(Ptr CInt)
-              , tol :: {-# UNPACK #-} !(Ptr CDouble)
+              , tol :: {-# UNPACK #-} !(Ptr Double)
               , resid :: {-# UNPACK #-} !(IOVector t)
               , ncv :: {-# UNPACK #-} !(Ptr CInt)
               , v :: {-# UNPACK #-} !(IOVector t)
@@ -86,7 +86,7 @@ data EUPD t = EUPD
               , d :: {-# UNPACK #-} !(IOVector t)
               , z :: {-# UNPACK #-} !(IOVector t)
               , ldz :: {-# UNPACK #-} !(Ptr CInt)
-              , sigma :: {-# UNPACK #-} !(Ptr t)
+              , sigma :: {-# UNPACK #-} !(Ptr Double)
               , workev :: {-# UNPACK #-} !(IOVector t)
               }
 
@@ -95,15 +95,15 @@ withEUPD options aupd = bracket (initEUPD options aupd) freeEUPD
 
 initEUPD :: Storable t => Options t -> AUPD t -> IO (EUPD t)
 initEUPD options (AUPD {..}) = do
-  let nev = number options
+  _nev <- fromIntegral <$> peek nev
   _ncv <- fromIntegral <$> peek ncv
   dim <- fromIntegral <$> peek n
 
   rvec <- new (if findVectors options then 1 else 0)
   howmny <- newCString "A"
   select <- VSM.new _ncv
-  d <- VSM.new (nev + 1)
-  z <- VSM.new (dim * nev)
+  d <- VSM.new (_nev + 1)
+  z <- VSM.new (dim * _nev)
   ldz <- new (fromIntegral dim)
   sigma <- malloc
   workev <- VSM.new (2 * _ncv)

@@ -1,8 +1,6 @@
 {-# OPTIONS_GHC -fno-cse -fno-full-laziness #-} -- `unsafePerformIO`
 
-module Numeric.LinearAlgebra.Arnoldi.Lock
-       ( lock
-       ) where
+module Arpack.Lock ( lock ) where
 
 import Control.Concurrent.Lock (Lock)
 import qualified Control.Concurrent.Lock as Lock

@@ -16,11 +16,11 @@ library
   exposed-modules:
     Numeric.LinearAlgebra.Arnoldi
   other-modules:
-    Exceptions,
-    Internal,
-    Numeric.LinearAlgebra.Arnoldi.Lock,
-    Numeric.LinearAlgebra.Arnoldi.State,
-    Options
+    Arpack.Exceptions,
+    Arpack.Foreign,
+    Arpack.Lock,
+    Arpack.Options,
+    Arpack.State
   build-depends:
     base >= 4.6,
     concurrent-extra >= 0.7,
