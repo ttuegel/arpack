@@ -1,2 +1,5 @@
 with (import <nixpkgs> {}).pkgs;
-haskellPackages.callPackage ./. {}
+let
+  arpackCompat = arpack.override { openblas = openblasCompat; };
+in
+haskellPackages.callPackage ./. { arpack = arpackCompat; }

@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Numeric.LinearAlgebra.Arnoldi
@@ -10,7 +11,6 @@ module Numeric.LinearAlgebra.Arnoldi
 import qualified Control.Concurrent.Lock as Lock
 import Control.Exception (throwIO)
 import Data.Complex
-import Data.Maybe (fromMaybe)
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as VS hiding (unsafeWith)
 import Data.Vector.Storable.Mutable (IOVector)
@@ -50,26 +50,22 @@ wrapper aupd eupd !opts !dim !multiply
   -- variables invokes 'arpack' again, the program will deadlock!
   = unsafePerformIO $ withAUPD opts dim $ \stateA@(AUPD {..}) -> do
 
-    -- shift strategy
-    VSM.write iparam 0 1
-
-    -- maximum number of iterations
-    VSM.write iparam 2 (fromIntegral (fromMaybe (3 * dim) (maxIterations opts)))
-
-    -- block size
-    VSM.write iparam 3 1
-
-    -- eigenproblem type
-    VSM.write iparam 6 1
-
+    VS.freeze iparam >>= print
+ 
     let
       loop = do
         aupd stateA
-        i <- peek ido
-        case i of
-          99 -> pure ()
+        peek ido >>= \case
+          99 -> do
+            peek info >>= \case
+              0 -> VS.freeze iparam >>= print >> pure ()
+              1 -> throwIO MaxIterations
+              3 -> throwIO NoShifts
+              i -> do
+                printf "xyaupd: info = %d\n" (fromIntegral i :: Int)
+                throwIO Impossible
 
-          _ | abs i == 1 -> do
+          i | abs i == 1 -> do
                 xi <- fromIntegral <$> VSM.read ipntr 0
                 let
                   x = VSM.slice (xi - 1) dim workd
@@ -81,24 +77,19 @@ wrapper aupd eupd !opts !dim !multiply
 
             | otherwise -> throwIO Impossible
 
-      messages = do
-        i <- peek info
-        case i of
-          0 -> pure ()
-          1 -> throwIO MaxIterations
-          3 -> throwIO NoShifts
-          _ -> printf "znaupd: info = %d" (fromIntegral i :: Int)
-
       extract = withEUPD stateA $ \stateE@(EUPD {..}) -> do
         eupd stateE stateA
 
-        i <- peek info
-        case i of
+        peek info >>= \case
           0 -> pure ()
-          _ -> throwIO Impossible
+          1 -> throwIO Reallocate
+          i -> do
+            printf "xyeupd: info = %d\n" (fromIntegral i :: Int)
+            throwIO Impossible
 
         evals <- VS.unsafeFreeze (VSM.slice 0 (number opts) d)
         evecs <- VS.unsafeFreeze (VSM.slice 0 (number opts * dim) z)
-        pure (evals, Dense.matrixFromVector Dense.ColumnMajor dim (number opts) evecs)
+        let matrixFromVector = Dense.matrixFromVector Dense.ColumnMajor
+        pure (evals, matrixFromVector dim (number opts) evecs)
 
-    Lock.with Arpack.lock (loop >> messages >> extract)
+    Lock.with Arpack.lock (loop >> extract)

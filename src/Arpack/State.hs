@@ -3,6 +3,7 @@
 module Arpack.State where
 
 import Control.Exception (bracket)
+import Data.Maybe (fromMaybe)
 import Data.Vector.Storable.Mutable (IOVector)
 import qualified Data.Vector.Storable.Mutable as VSM
 import Foreign
@@ -56,7 +57,18 @@ initAUPD options dim = do
   ncv <- new (fromIntegral _ncv)
   v <- VSM.new (dim * _ncv)
   ldv <- new (fromIntegral dim)
+
   iparam <- VSM.new 11
+  -- shift strategy
+  VSM.write iparam (1 - 1) 1
+  -- maximum number of iterations
+  VSM.write iparam (3 - 1)
+    (fromIntegral (fromMaybe (3 * dim) (maxIterations options)))
+  -- block size
+  VSM.write iparam (4 - 1) 1
+  -- eigenproblem type
+  VSM.write iparam (7 - 1) 1
+
   ipntr <- VSM.new 14
   workd <- VSM.new (3 * dim)
   workl <- VSM.new _lworkl

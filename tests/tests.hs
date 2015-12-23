@@ -14,7 +14,7 @@ main = hspec $ do
 
     it "returns the diagonal of an arbitrary diagonal matrix" $ property $ do
       dim <- arbitrary `suchThat` (> 3)
-      diagonal <- VS.modify Intro.sort . VS.fromList <$> vector dim
+      diagonal <- VS.fromList <$> vector dim
       let
         _matrix = diag diagonal :: Matrix Double
         nev = dim - 3
@@ -22,8 +22,10 @@ main = hspec $ do
                           , number = nev
                           , maxIterations = Nothing
                           }
-        (evals, _) = eig options dim (multiply _matrix)
-      pure (evals == VS.take nev diagonal)
+        (actual, _) = eig options dim (multiply _matrix)
+        expected = VS.take nev (VS.modify Intro.sort diagonal)
+        relative = VS.maximum (VS.zipWith (%) expected actual)
+      pure (counterexample (show (expected, actual)) (relative < 1E-4))
 
 multiply :: (Numeric a, Storable a)
          => Matrix a -> IOVector a -> IOVector a -> IO ()
@@ -31,3 +33,10 @@ multiply _matrix dst src = do
   x <- VS.freeze src
   let y = _matrix #> x
   VS.copy dst y
+
+(%) :: Double -> Double -> Double
+(%) a b =
+  let a_plus_b = a + b
+  in if a_plus_b /= 0
+     then abs ((a - b) / a_plus_b)
+     else a - b

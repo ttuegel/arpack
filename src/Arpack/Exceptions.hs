@@ -16,3 +16,7 @@ instance Exception NoShifts
 data Impossible = Impossible deriving (Show, Typeable)
 
 instance Exception Impossible
+
+data Reallocate = Reallocate deriving (Show, Typeable)
+
+instance Exception Reallocate
