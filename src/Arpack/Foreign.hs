@@ -10,7 +10,6 @@ import Data.Complex
 import qualified Data.Vector.Storable.Mutable as VSM
 import Foreign
 import Foreign.C.String
-import Foreign.C.Types
 import Foreign.Storable.Complex ()
 
 import Arpack.State
@@ -20,50 +19,50 @@ import Arpack.State
 --
 
 type XXaupd t real
-  = Ptr CInt      -- ido
+  = Ptr Int32     -- ido
     -> CString    -- bmat
-    -> Ptr CInt   -- n
+    -> Ptr Int32  -- n
     -> CString    -- which
-    -> Ptr CInt   -- nev
+    -> Ptr Int32  -- nev
     -> Ptr real   -- tol
     -> Ptr t      -- resid
-    -> Ptr CInt   -- ncv
+    -> Ptr Int32  -- ncv
     -> Ptr t      -- v
-    -> Ptr CInt   -- ldv
-    -> Ptr CInt   -- iparam
-    -> Ptr CInt   -- ipntr
+    -> Ptr Int32  -- ldv
+    -> Ptr Int32  -- iparam
+    -> Ptr Int32  -- ipntr
     -> Ptr t      -- workd
     -> Ptr t      -- workl
-    -> Ptr CInt   -- lworkl
+    -> Ptr Int32  -- lworkl
     -> Ptr real   -- rwork
-    -> Ptr CInt   -- info
+    -> Ptr Int32  -- info
     -> IO ()
 
 type XXeupd t real
-  = Ptr CInt      -- rvec
+  = Ptr Int32     -- rvec
     -> CString    -- all
-    -> Ptr CInt   -- select
+    -> Ptr Int32  -- select
     -> Ptr t      -- d
     -> Ptr t      -- z
-    -> Ptr CInt   -- ldz
+    -> Ptr Int32  -- ldz
     -> Ptr real   -- sigma
     -> Ptr t      -- workev
     -> CString    -- bmat
-    -> Ptr CInt   -- n
+    -> Ptr Int32  -- n
     -> CString    -- which
-    -> Ptr CInt   -- nev
+    -> Ptr Int32  -- nev
     -> Ptr real   -- tol
     -> Ptr t      -- resid
-    -> Ptr CInt   -- ncv
+    -> Ptr Int32  -- ncv
     -> Ptr t      -- v
-    -> Ptr CInt   -- ldv
-    -> Ptr CInt   -- iparam
-    -> Ptr CInt   -- ipntr
+    -> Ptr Int32  -- ldv
+    -> Ptr Int32  -- iparam
+    -> Ptr Int32  -- ipntr
     -> Ptr t      -- workd
     -> Ptr t      -- workl
-    -> Ptr CInt   -- lworkl
+    -> Ptr Int32  -- lworkl
     -> Ptr real   -- rwork
-    -> Ptr CInt   -- ierr
+    -> Ptr Int32  -- ierr
     -> IO ()
 
 --

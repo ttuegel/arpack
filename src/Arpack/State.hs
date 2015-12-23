@@ -8,28 +8,27 @@ import Data.Vector.Storable.Mutable (IOVector)
 import qualified Data.Vector.Storable.Mutable as VSM
 import Foreign
 import Foreign.C.String
-import Foreign.C.Types
 
 import Arpack.Options
 
 data AUPD t = AUPD
-              { ido :: {-# UNPACK #-} !(Ptr CInt)
+              { ido :: {-# UNPACK #-} !(Ptr Int32)
               , bmat :: {-# UNPACK #-} !CString
-              , n :: {-# UNPACK #-} !(Ptr CInt)
+              , n :: {-# UNPACK #-} !(Ptr Int32)
               , which :: {-# UNPACK #-} !CString
-              , nev :: {-# UNPACK #-} !(Ptr CInt)
+              , nev :: {-# UNPACK #-} !(Ptr Int32)
               , tol :: {-# UNPACK #-} !(Ptr Double)
               , resid :: {-# UNPACK #-} !(IOVector t)
-              , ncv :: {-# UNPACK #-} !(Ptr CInt)
+              , ncv :: {-# UNPACK #-} !(Ptr Int32)
               , v :: {-# UNPACK #-} !(IOVector t)
-              , ldv :: {-# UNPACK #-} !(Ptr CInt)
-              , iparam :: {-# UNPACK #-} !(IOVector CInt)
-              , ipntr :: {-# UNPACK #-} !(IOVector CInt)
+              , ldv :: {-# UNPACK #-} !(Ptr Int32)
+              , iparam :: {-# UNPACK #-} !(IOVector Int32)
+              , ipntr :: {-# UNPACK #-} !(IOVector Int32)
               , workd :: {-# UNPACK #-} !(IOVector t)
               , workl :: {-# UNPACK #-} !(IOVector t)
-              , lworkl :: {-# UNPACK #-} !(Ptr CInt)
+              , lworkl :: {-# UNPACK #-} !(Ptr Int32)
               , rwork :: {-# UNPACK #-} !(IOVector Double)
-              , info :: {-# UNPACK #-} !(Ptr CInt)
+              , info :: {-# UNPACK #-} !(Ptr Int32)
               }
 
 withAUPD :: Storable t => Options t -> Int -> (AUPD t -> IO a) -> IO a
@@ -92,12 +91,12 @@ freeAUPD AUPD {..} = do
   free info
 
 data EUPD t = EUPD
-              { rvec :: {-# UNPACK #-} !(Ptr CInt)
+              { rvec :: {-# UNPACK #-} !(Ptr Int32)
               , howmny :: {-# UNPACK #-} !CString
-              , select :: {-# UNPACK #-} !(IOVector CInt)
+              , select :: {-# UNPACK #-} !(IOVector Int32)
               , d :: {-# UNPACK #-} !(IOVector t)
               , z :: {-# UNPACK #-} !(IOVector t)
-              , ldz :: {-# UNPACK #-} !(Ptr CInt)
+              , ldz :: {-# UNPACK #-} !(Ptr Int32)
               , sigma :: {-# UNPACK #-} !(Ptr Double)
               , workev :: {-# UNPACK #-} !(IOVector t)
               }
