@@ -12,9 +12,10 @@ data Component a where
   Real :: Component a
   Imaginary :: Component (Complex a)
 
-data Options a = Options { which :: (Comparison, Component a)
-                         , number :: Int
-                         , maxIterations :: Maybe Int
+data Options a = Options { which :: {-# UNPACK #-} !(Comparison, Component a)
+                         , number :: {-# UNPACK #-} !Int
+                         , maxIterations :: !(Maybe Int)
+                         , findVectors :: !Bool
                          }
 
 whichString :: Options t -> String

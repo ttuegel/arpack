@@ -18,6 +18,8 @@ library
   other-modules:
     Exceptions,
     Internal,
+    Numeric.LinearAlgebra.Arnoldi.Lock,
+    Numeric.LinearAlgebra.Arnoldi.State,
     Options
   build-depends:
     base >= 4.6,
@@ -25,6 +27,7 @@ library
     containers >= 0.5,
     control-monad-loop >= 0.1,
     data-default >= 0.5,
+    hmatrix >= 0.16,
     ieee754 >= 0.7,
     storable-complex >= 0.2,
     transformers >= 0.3,
@@ -32,6 +35,7 @@ library
     vector-algorithms >= 0.6
   hs-source-dirs: src
   default-language: Haskell2010
+  ghc-options: -Wall
   pkgconfig-depends: arpack
 
 test-suite tests
@@ -43,9 +47,10 @@ test-suite tests
   build-depends:
     arpack,
     base,
-    hmatrix >= 0.16,
+    hmatrix,
     ieee754,
     tasty >= 0.7,
     tasty-quickcheck >= 0.3,
     vector
   default-language: Haskell2010
+  ghc-options: -Wall
