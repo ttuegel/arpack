@@ -90,16 +90,16 @@ data EUPD t = EUPD
               , workev :: {-# UNPACK #-} !(IOVector t)
               }
 
-withEUPD :: Storable t => Options t -> AUPD t -> (EUPD t -> IO a) -> IO a
-withEUPD options aupd = bracket (initEUPD options aupd) freeEUPD
+withEUPD :: Storable t => AUPD t -> (EUPD t -> IO a) -> IO a
+withEUPD aupd = bracket (initEUPD aupd) freeEUPD
 
-initEUPD :: Storable t => Options t -> AUPD t -> IO (EUPD t)
-initEUPD options (AUPD {..}) = do
+initEUPD :: Storable t => AUPD t -> IO (EUPD t)
+initEUPD (AUPD {..}) = do
   _nev <- fromIntegral <$> peek nev
   _ncv <- fromIntegral <$> peek ncv
   dim <- fromIntegral <$> peek n
 
-  rvec <- new (if findVectors options then 1 else 0)
+  rvec <- new 1
   howmny <- newCString "A"
   select <- VSM.new _ncv
   d <- VSM.new (_nev + 1)

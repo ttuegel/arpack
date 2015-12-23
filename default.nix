@@ -1,7 +1,6 @@
 { mkDerivation, arpack, base, concurrent-extra, containers
-, control-monad-loop, data-default, hmatrix, ieee754, stdenv
-, storable-complex, tasty, tasty-quickcheck, transformers, vector
-, vector-algorithms
+, control-monad-loop, data-default, hmatrix, hspec, ieee754, stdenv
+, storable-complex, transformers, vector, vector-algorithms
 }:
 mkDerivation {
   pname = "arpack";
@@ -9,11 +8,10 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     base concurrent-extra containers control-monad-loop data-default
-    storable-complex transformers vector vector-algorithms
+    hmatrix ieee754 storable-complex transformers vector
+    vector-algorithms
   ];
   libraryPkgconfigDepends = [ arpack ];
-  testHaskellDepends = [
-    base hmatrix ieee754 tasty tasty-quickcheck vector
-  ];
+  testHaskellDepends = [ base hmatrix hspec ];
   license = stdenv.lib.licenses.bsd3;
 }

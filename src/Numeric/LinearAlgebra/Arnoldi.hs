@@ -18,6 +18,7 @@ import qualified Data.Vector.Storable.Mutable as VSM
 import Foreign (Storable, peek)
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra.Devel as Dense
+import System.IO.Unsafe (unsafePerformIO)
 import Text.Printf
 
 import Arpack.Exceptions
@@ -28,7 +29,7 @@ import Arpack.State
 
 class Arpack t where
   eig :: Options t -> Int -> (IOVector t -> IOVector t -> IO ())
-      -> IO (Vector t, Matrix t)
+      -> (Vector t, Matrix t)
 
 instance Arpack Double where
   eig = wrapper dnaupd dneupd
@@ -41,13 +42,13 @@ wrapper :: (Storable t)
         -> Options t
         -> Int  -- ^ dimension of linear operator
         -> (IOVector t -> IOVector t -> IO ())  -- ^ operator
-        -> IO (Vector t, Matrix t)
+        -> (Vector t, Matrix t)
 wrapper aupd eupd !opts !dim !multiply
   -- These variables are all banged because we need to be strict
   -- in them _before_ we enter the locked segment of code! If we
   -- wait until we're inside the lock, and evaluating one of these
   -- variables invokes 'arpack' again, the program will deadlock!
-  = withAUPD opts dim $ \stateA@(AUPD {..}) -> do
+  = unsafePerformIO $ withAUPD opts dim $ \stateA@(AUPD {..}) -> do
 
     -- shift strategy
     VSM.write iparam 0 1
@@ -88,7 +89,7 @@ wrapper aupd eupd !opts !dim !multiply
           3 -> throwIO NoShifts
           _ -> printf "znaupd: info = %d" (fromIntegral i :: Int)
 
-      extract = withEUPD opts stateA $ \stateE@(EUPD {..}) -> do
+      extract = withEUPD stateA $ \stateE@(EUPD {..}) -> do
         eupd stateE stateA
 
         i <- peek info

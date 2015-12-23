@@ -24,5 +24,4 @@ showWhich SI = "SI"
 data Options a = Options { which :: !(Which a)
                          , number :: {-# UNPACK #-} !Int
                          , maxIterations :: !(Maybe Int)
-                         , findVectors :: !Bool
                          }
