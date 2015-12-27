@@ -18,9 +18,11 @@ library
   other-modules:
     Arpack.Exceptions,
     Arpack.Foreign,
+    Arpack.Foreign.Class,
+    Arpack.Foreign.Complex,
+    Arpack.Foreign.Real,
     Arpack.Lock,
-    Arpack.Options,
-    Arpack.State
+    Arpack.Options
   build-depends:
     base >= 4.6,
     concurrent-extra >= 0.7,
