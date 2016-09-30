@@ -13,6 +13,10 @@ category:            Science
 build-type:          Simple
 cabal-version:       >=1.10
 
+source-repository head
+  Type:     git
+  Location: https://github.com/ttuegel/arpack.git
+
 library
   exposed-modules:
     Numeric.LinearAlgebra.Arnoldi
