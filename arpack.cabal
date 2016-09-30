@@ -1,15 +1,16 @@
 name:                arpack
 version:             0.1.0.0
--- synopsis:
--- description:
+synopsis:            Solve large scale eigenvalue problems
+description:
+  Bindings to ARPACK, a Fortran package implementing the implicitly restarted
+  Arnoldi (Lanczos) method for solving large scale eigenvalue problems.
 license:             BSD3
 license-file:        LICENSE
 author:              Thomas Tuegel
 maintainer:          ttuegel@gmail.com
--- copyright:
+copyright:           (c) 2016 Thomas Tuegel
 category:            Science
 build-type:          Simple
--- extra-source-files:
 cabal-version:       >=1.10
 
 library
