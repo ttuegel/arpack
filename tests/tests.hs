@@ -3,7 +3,7 @@ module Main where
 import Data.Ord (comparing)
 import qualified Data.Vector.Algorithms.Intro as Intro
 import qualified Data.Vector.Storable as VS
-import Data.Vector.Storable.Mutable (IOVector, Storable)
+import Data.Vector.Storable.Mutable (IOVector)
 import Numeric.LinearAlgebra hiding (eig, vector)
 import Numeric.LinearAlgebra.Arnoldi
 import Test.Hspec
@@ -45,8 +45,7 @@ main = hspec $ do
         relative = VS.maximum (VS.zipWith (%%) expected actual)
       pure (counterexample (show (expected, actual)) (relative < 1E-4))
 
-multiply :: (Numeric a, Storable a)
-         => Matrix a -> IOVector a -> IOVector a -> IO ()
+multiply :: Numeric a => Matrix a -> IOVector a -> IOVector a -> IO ()
 multiply _matrix dst src = do
   x <- VS.freeze src
   let y = _matrix #> x
