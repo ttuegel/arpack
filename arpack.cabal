@@ -29,7 +29,7 @@ library
     Arpack.Lock,
     Arpack.Options
   build-depends:
-    base >= 4.6,
+    base >= 4.6 && < 5,
     concurrent-extra >= 0.7,
     containers >= 0.5,
     control-monad-loop >= 0.1,
