@@ -1,5 +1,3 @@
-with (import <nixpkgs> {}).pkgs;
-let
-  arpackCompat = arpack.override { openblas = openblasCompat; };
-in
-haskellPackages.callPackage ./. { arpack = arpackCompat; }
+{ nixpkgs ? import <nixpkgs> {}, profiling ? false }:
+
+(import ./default.nix { inherit nixpkgs profiling; }).env
